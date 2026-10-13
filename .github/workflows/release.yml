@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  TARGET: x86_64-unknown-linux-musl
+  PACKAGE: nrps-x86_64-linux
+
+jobs:
+  release:
+    name: build and publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check that the tag matches Cargo.toml
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME does not match Cargo.toml version $version" >&2
+            exit 1
+          fi
+
+      - name: Install musl-tools
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.TARGET }}
+
+      - name: cargo test
+        run: cargo test
+
+      - name: Build release binary
+        run: cargo build --release --target "$TARGET"
+
+      - name: Package
+        run: |
+          mkdir "$PACKAGE"
+          cp "target/$TARGET/release/nrps" deploy/install.sh deploy/nrps.service README.md SECURITY.md LICENSE "$PACKAGE/"
+          cp -r docs "$PACKAGE/"
+          tar czf "$PACKAGE.tar.gz" "$PACKAGE"
+          sha256sum "$PACKAGE.tar.gz" > "$PACKAGE.tar.gz.sha256"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --title "nrps $GITHUB_REF_NAME" --generate-notes "$PACKAGE.tar.gz" "$PACKAGE.tar.gz.sha256"

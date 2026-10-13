@@ -1,0 +1,60 @@
+[Unit]
+Description=NVDA Remote private relay server
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor=/var/lib/nrps
+StartLimitIntervalSec=0
+
+[Service]
+User=nrps
+Group=nrps
+WorkingDirectory=/var/lib/nrps
+# Optional settings (port, limits, message of the day), written by install.sh.
+EnvironmentFile=-/etc/default/nrps
+ExecStart=/usr/local/bin/nrps --cert /var/lib/nrps/cert.pem --key /var/lib/nrps/key.pem $NRPS_OPTIONS
+Restart=always
+RestartSec=5
+UMask=0077
+
+# Resource limits: protect the rest of the server (sshd, journald).
+MemoryMax=256M
+MemorySwapMax=0
+TasksMax=64
+LimitNOFILE=4096
+LimitCORE=0
+LogRateLimitIntervalSec=30s
+LogRateLimitBurst=1000
+
+# Sandboxing.
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/nrps
+PrivateTmp=true
+PrivateDevices=true
+DevicePolicy=closed
+PrivateIPC=true
+PrivateUsers=true
+RemoveIPC=true
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target
